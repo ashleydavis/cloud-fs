@@ -1,11 +1,10 @@
 {
-    "name": "typescript-template",
+    "name": "cloud-fs",
     "version": "1.0.0",
-    "description": "A template for a TypeScript app. To make it easier to start a new app without having to go through all the configuration.",
-    "main": "build/index.js",
-    "types": "build/index.d.ts",
+    "description": "Commands for working with files in cloud storage.",
     "scripts": {
-        "start": "node ./build/cli.js",
+        "start": "node ./build/cloud.js",
+        "sd": "npm run start:dev",
         "start:dev": "nodemon",
         "c": "npm run clean",
         "clean": "rm -rf build/*",
@@ -22,24 +21,26 @@
         "test:watch": "jest --watch"
     },
     "bin": {
-        "typescript-template-cli": "./bin/cli"
+        "cloud": "./bin/cloud"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://ashleydavis@github.com/ashleydavis/typescript-template.git"
+        "url": "git+https://ashleydavis@github.com/ashleydavis/cloud-fs.git"
     },
     "keywords": [],
     "author": "ashley@codecapers.com.au",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/ashleydavis/typescript-template/issues"
+        "url": "https://github.com/ashleydavis/cloud-fs/issues"
     },
-    "homepage": "https://github.com/ashleydavis/typescript-template#readme",
+    "homepage": "https://github.com/ashleydavis/cloud-fs#readme",
     "dependencies": {
+        "minimist": "^1.2.5",
         "moment": "^2.29.1"
     },
     "devDependencies": {
         "@types/jest": "^26.0.20",
+        "@types/minimist": "^1.2.1",
         "@types/node": "^14.14.25",
         "jest": "^26.6.3",
         "nodemon": "^2.0.7",
