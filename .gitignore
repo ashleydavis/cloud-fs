@@ -60,3 +60,4 @@ typings/
 build/
 *.bak
 tsconfig.tsbuildinfo
+todo.md
