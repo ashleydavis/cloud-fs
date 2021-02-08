@@ -12,7 +12,7 @@ set AZURE_STORAGE_CONNECTION_STRING=<your-connection-string>
 https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-nodejs
 */
 
-import { IFileSystem, IFsNode } from "./file-system";
+import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
 import { BlobServiceClient } from '@azure/storage-blob';
 import * as path from "path";
 
@@ -93,7 +93,7 @@ export class AzureFileSystem implements IFileSystem {
      * 
      * @param file The file to open.
      */
-    async createReadStream(file: string): Promise<NodeJS.ReadableStream> {
+    async createReadStream(file: string): Promise<IFileReadResponse> {
         if (file[0] === "/") {
             file = file.substring(1);
         }
@@ -104,7 +104,11 @@ export class AzureFileSystem implements IFileSystem {
         const containerClient = this.blobService.getContainerClient(containerName);
         const blobClient = containerClient.getBlobClient(blobPath);
         const response = await blobClient.download();
-        return response.readableStreamBody!;
+        return {
+            contentType: response.contentType,
+            contentLength: response.contentLength,
+            stream: response.readableStreamBody!
+        };
     }
 
     /**
@@ -112,7 +116,7 @@ export class AzureFileSystem implements IFileSystem {
      * 
      * @param file The file to write to.
      */
-    async copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void> {
+    async copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
         throw new Error("Not implemented");
     }
 

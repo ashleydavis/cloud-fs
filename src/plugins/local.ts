@@ -2,7 +2,7 @@
 Interface to the local file system.
 */
 
-import { IFileSystem, IFsNode } from "./file-system";
+import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
 import * as shell from "shelljs";
 import { createReadStream, createWriteStream } from "fs";
 import * as fsExtra from "fs-extra";
@@ -49,8 +49,12 @@ export class LocalFileSystem implements IFileSystem {
      * 
      * @param file The file to open.
      */
-    async createReadStream(file: string): Promise<NodeJS.ReadableStream> {
-        return createReadStream(file);
+    async createReadStream(file: string): Promise<IFileReadResponse> {
+        return {
+            //todo: use file ext for content type.
+            //todo: use stat for file lenght
+            stream: createReadStream(file),
+        };
     }
 
     /**
@@ -58,9 +62,9 @@ export class LocalFileSystem implements IFileSystem {
      * 
      * @param file The file to write to.
      */
-    async copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void> {
+    async copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
         await waitPipe(
-            input,
+            input.stream,
             createWriteStream(file)
         );
     }

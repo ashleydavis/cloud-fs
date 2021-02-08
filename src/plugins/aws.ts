@@ -12,10 +12,11 @@ https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-starte
 https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-your-credentials.html
 */
 
-import { IFileSystem, IFsNode } from "./file-system";
+import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
 import * as aws from "aws-sdk";
 import * as path from "path";
 import { PassThrough } from "stream";
+import { S3 } from "aws-sdk";
 
 export class AWSFileSystem implements IFileSystem {
 
@@ -59,7 +60,7 @@ export class AWSFileSystem implements IFileSystem {
      * 
      * @param file The file to open.
      */
-    async createReadStream(file: string): Promise<NodeJS.ReadableStream> {
+    async createReadStream(file: string): Promise<IFileReadResponse> {
         throw new Error("Not implemented");
     }        
 
@@ -68,7 +69,7 @@ export class AWSFileSystem implements IFileSystem {
      * 
      * @param file The file to write to.
      */
-    copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void> {
+    copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             if (file[0] === "/") {
                 file = file.substring(1);
@@ -77,10 +78,12 @@ export class AWSFileSystem implements IFileSystem {
             const bucketName = file.substring(0, slashIndex);
             const key = file.substring(slashIndex+1);
     
-            const params = {
+            const params: S3.Types.PutObjectRequest = {
                 Bucket: bucketName, 
                 Key: key, 
-                Body: input,
+                Body: input.stream,
+                ContentType: input.contentType,
+                ContentLength: input.contentLength,
             };
     
             this.s3.upload(params, (err: Error) => {

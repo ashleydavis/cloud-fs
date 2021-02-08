@@ -14,6 +14,23 @@ export interface IFsNode {
     name: string;
 }
 
+export interface IFileReadResponse {
+    /**
+     * Type of content within the file.
+     */
+    contentType?: string;
+
+    /**
+     * Size of the file.
+     */
+    contentLength?: number;
+
+    /**
+     * Readable stream for the file.
+     */
+    stream: NodeJS.ReadableStream
+}
+
 /**
  * Interface to a file system.
  */
@@ -45,12 +62,12 @@ export interface IFileSystem {
      * 
      * @param file The file to open.
      */
-    createReadStream(file: string): Promise<NodeJS.ReadableStream>;
+    createReadStream(file: string): Promise<IFileReadResponse>;
 
     /**
      * Writes an input stream to a file.
      * 
      * @param file The file to write to.
      */
-    copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void>;
+    copyStreamTo(file: string, input: IFileReadResponse): Promise<void>;
 }
