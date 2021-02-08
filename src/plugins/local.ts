@@ -2,10 +2,11 @@
 Interface to the local file system.
 */
 
-import { IFileSystem } from "./file-system";
+import { IFileSystem, IFsNode } from "./file-system";
 import * as shell from "shelljs";
 import { createReadStream, createWriteStream } from "fs";
 import * as fsExtra from "fs-extra";
+import * as path from "path";
 
 export class LocalFileSystem implements IFileSystem {
     /**
@@ -13,9 +14,14 @@ export class LocalFileSystem implements IFileSystem {
      * 
      * @param dir List files and directories under this directory.
      */
-    async* ls(dir: string): AsyncIterable<string> {
+    async* ls(dir: string): AsyncIterable<IFsNode> {
         for (const item of shell.ls(dir)) {
-            yield item;
+            const fullPath = path.join(dir, item);
+            const stat = await fsExtra.stat(fullPath);
+            yield {
+                isDir: stat.isDirectory(),
+                name: item,
+            };
         }
     }
 

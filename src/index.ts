@@ -1,7 +1,8 @@
 import { AzureFileSystem } from "./plugins/azure";
-import { IFileSystem } from "./plugins/file-system";
+import { IFileSystem, IFsNode } from "./plugins/file-system";
 import { LocalFileSystem } from "./plugins/local";
 import * as path from "path";
+import { AWSFileSystem } from "./plugins/aws";
 
 //
 // Parses a path and extract the file system ID.
@@ -17,6 +18,7 @@ interface IParsedPath {
 const fileSystems: { [name: string]: IFileSystem } = {
     local: new LocalFileSystem(),
     az: new AzureFileSystem(),
+    aws: new AWSFileSystem(),
 };
 
 //
@@ -58,7 +60,7 @@ export class CloudFS {
      * 
      * @param dir List files and directories under this directory.
      */
-    async* ls(dir: string): AsyncIterable<string> {
+    async* ls(dir: string): AsyncIterable<IFsNode> {
         const path = this.parsePath(dir);
         const fs = fileSystems[path.fileSystem];
         yield* fs.ls(path.path);
@@ -90,6 +92,29 @@ export class CloudFS {
         await this.waitPipe(input, output);
     }
 
+    //
+    // Copies a directory recursively.
+    //
+    private async copyDir(srcFs: IFileSystem, srcFsId: string, srcPath: string, destFs: IFileSystem, destFsId: string, destPath: string): Promise<void> {
+        const nodes = srcFs.ls(srcPath);
+        for await (const node of nodes) {
+            if (node.isDir) {
+                await this.copyDir(srcFs, srcFsId, joinPath(srcPath, node.name), destFs, destFsId, joinPath(destPath, node.name));
+            }
+            else {
+                const srcFilePath = joinPath(srcPath, node.name);
+                const fileBasename = node.name;
+    
+                await destFs.ensureDir(destPath);
+    
+                const destFilePath = joinPath(destPath, fileBasename);
+                console.log(`cp ${srcFsId}:${srcFilePath} => ${destFsId}:${destFilePath}`);
+    
+                await this.copyFile(srcFs, srcFilePath, destFs, destFilePath);
+            }
+        }
+    }
+
     /**
      * Copies files and directories from one place to another (including from one cloud vendor to another).
      * 
@@ -103,18 +128,7 @@ export class CloudFS {
         const destFs = fileSystems[destPath.fileSystem];
         const isSrcDirectory = srcPath.path[srcPath.path.length-1] === "/";
         if (isSrcDirectory) {
-            const files = srcFs.ls(srcPath.path);
-            for await (const fileName of files) {
-                const srcFilePath = joinPath(srcPath.path, fileName);
-                const fileBasename = fileName;
-    
-                await destFs.ensureDir(destPath.path);
-        
-                const destFilePath = joinPath(destPath.path, fileBasename);
-                console.log(`cp ${srcPath.fileSystem}:${srcFilePath} => ${destPath.fileSystem}:${destFilePath}`);
-        
-                await this.copyFile(srcFs, srcFilePath, destFs, destFilePath);            
-            }
+            await this.copyDir(srcFs, srcPath.fileSystem, srcPath.path, destFs, destPath.fileSystem, destPath.path);
         }
         else {
             const fileBasename = path.basename(srcPath.path);

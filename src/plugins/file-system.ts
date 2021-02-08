@@ -1,3 +1,18 @@
+/**
+ * Represents a file or directory in a file system.
+ */
+export interface IFsNode {
+
+    /**
+     * Set to true if a directory.
+     */
+    isDir: boolean;
+
+    /**
+     * Name of the file or directory.
+     */
+    name: string;
+}
 
 /**
  * Interface to a file system.
@@ -9,7 +24,7 @@ export interface IFileSystem {
      * 
      * @param dir List files and directories under this directory.
      */
-    ls(dir: string): AsyncIterable<string>;
+    ls(dir: string): AsyncIterable<IFsNode>;
 
     /**
      * Ensure that the requested directory exists, creates it if it doesn't exist.

@@ -12,10 +12,9 @@ set AZURE_STORAGE_CONNECTION_STRING=<your-connection-string>
 https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-nodejs
 */
 
-import { IFileSystem } from "./file-system";
+import { IFileSystem, IFsNode } from "./file-system";
 import { BlobServiceClient } from '@azure/storage-blob';
 import * as path from "path";
-import { Console } from "console";
 
 export class AzureFileSystem implements IFileSystem {
 
@@ -27,23 +26,32 @@ export class AzureFileSystem implements IFileSystem {
 
     //
     // Enumerates all containers in the storage account.
-    private async* enumerateContainers(): AsyncIterable<string> {
+    private async* enumerateContainers(): AsyncIterable<IFsNode> {
         for await (const container of this.blobService.listContainers()) {
-            yield container.name;
+            yield {
+                isDir: true,
+                name: container.name,
+            };
         }
     }
 
     //
     // Enumerates all blogs under the particular directory.
     //
-    private async* enumerateBlobs(dir: string): AsyncIterable<string> {
+    private async* enumerateBlobs(dir: string): AsyncIterable<IFsNode> {
+        if (dir[0] === "/") {
+            dir = dir.substring(1);
+        }
         const slashIndex = dir.indexOf("/");
-        const containerName = dir.substring(0, slashIndex);
-        const blobPath = dir.substring(slashIndex);
+        const containerName = slashIndex >= 0 ? dir.substring(0, slashIndex) : dir;
+        const blobPath = slashIndex >= 0 ? dir.substring(slashIndex) : "/";
 
         const containerClient = this.blobService.getContainerClient(containerName);
         for await (const item of containerClient.listBlobsByHierarchy(blobPath)) {
-            yield path.basename(item.name);
+            yield {
+                isDir: item.name[item.name.length-1] === "/",
+                name: path.basename(item.name),
+            };
         }
     }
 
@@ -52,8 +60,8 @@ export class AzureFileSystem implements IFileSystem {
      * 
      * @param dir List files and directories under this directory.
      */
-    async* ls(dir: string): AsyncIterable<string> {
-        if (dir === "." || dir === "/") { //todo: cope with cur directory properly
+    async* ls(dir: string): AsyncIterable<IFsNode> {
+        if (dir === "" || dir === "." || dir === "/") { //todo: cope with cur directory properly
             yield* this.enumerateContainers();
         }
         else {
@@ -86,6 +94,9 @@ export class AzureFileSystem implements IFileSystem {
      * @param file The file to open.
      */
     async createReadStream(file: string): Promise<NodeJS.ReadableStream> {
+        if (file[0] === "/") {
+            file = file.substring(1);
+        }
         const slashIndex = file.indexOf("/");
         const containerName = file.substring(0, slashIndex);
         const blobPath = file.substring(slashIndex+1);

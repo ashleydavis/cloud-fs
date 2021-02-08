@@ -9,15 +9,23 @@ app
     // .example("ls subdir", "Lists files and directories under 'subdir'.")
     // .example("ls aws:subdir", "Lists files and directories in AWS under 'subdir'.")
     .action(async args => {
-        const files = cloudFS.ls(args.dir && args.dir.trim() || ".");
+        const nodes = cloudFS.ls(args.dir && args.dir.trim() || ".");
         if (args.long) {
-            for await (const file of files) {
-                console.log(file);
+            for await (const node of nodes) {
+                if (node.isDir) {
+                    console.log(`${node.name}/`);
+                }
+                else {
+                    console.log(node);
+                }
             }
         }
         else {
-            for await (const file of files) {
-                process.stdout.write(file);
+            for await (const node of nodes) {
+                process.stdout.write(node.name);
+                if (node.isDir) {
+                    process.stdout.write("/");    
+                }
                 process.stdout.write("  ");
             }
             process.stdout.write("\n");
