@@ -79,6 +79,12 @@ export class CloudFS {
     // Copies a single file.
     //
     private async copyFile(srcFs: IFileSystem, srcFilePath: string, destFs: IFileSystem, destFilePath: string): Promise<void> {
+        const destExists = await destFs.exists(destFilePath);
+        if (destExists) {
+            console.log(`Dest file already exists.`);
+            return;
+        }
+
         const input = await srcFs.createReadStream(srcFilePath);
         const output = await destFs.createWriteStream(destFilePath);
         await this.waitPipe(input, output);
@@ -105,7 +111,7 @@ export class CloudFS {
                 await destFs.ensureDir(destPath.path);
         
                 const destFilePath = joinPath(destPath.path, fileBasename);
-                console.log(`"cp ${srcPath.fileSystem}:${srcFilePath} => ${destPath.fileSystem}:${destFilePath}"`);
+                console.log(`cp ${srcPath.fileSystem}:${srcFilePath} => ${destPath.fileSystem}:${destFilePath}`);
         
                 await this.copyFile(srcFs, srcFilePath, destFs, destFilePath);            
             }

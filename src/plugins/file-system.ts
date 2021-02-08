@@ -19,6 +19,13 @@ export interface IFileSystem {
     ensureDir(dir: string): Promise<void>;
 
     /**
+     * Returns true if the specified file already exists in the file system.
+     * 
+     * @param file The file to check for existance.
+     */
+    exists(file: string): Promise<boolean>;
+
+    /**
      * Creates a readable stream for a file.
      * 
      * @param file The file to open.

@@ -29,6 +29,15 @@ export class LocalFileSystem implements IFileSystem {
     }
 
     /**
+     * Returns true if the specified file already exists in the file system.
+     * 
+     * @param file The file to check for existance.
+     */
+    async exists(file: string): Promise<boolean> {
+        return await fsExtra.pathExists(file);
+    }
+
+    /**
      * Creates a readable stream for a file.
      * 
      * @param file The file to open.

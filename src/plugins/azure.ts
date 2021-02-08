@@ -72,6 +72,15 @@ export class AzureFileSystem implements IFileSystem {
     }
 
     /**
+     * Returns true if the specified file already exists in the file system.
+     * 
+     * @param file The file to check for existance.
+     */
+    async exists(file: string): Promise<boolean> {
+        throw new Error("Not implemented");
+    }
+
+    /**
      * Creates a readable stream for a file.
      * 
      * @param file The file to open.
