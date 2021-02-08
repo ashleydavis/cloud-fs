@@ -7,6 +7,7 @@ import * as shell from "shelljs";
 import { createReadStream, createWriteStream } from "fs";
 import * as fsExtra from "fs-extra";
 import * as path from "path";
+import { waitPipe } from "../utils";
 
 export class LocalFileSystem implements IFileSystem {
     /**
@@ -53,12 +54,14 @@ export class LocalFileSystem implements IFileSystem {
     }
 
     /**
-     * Creates a writable stream for a file.
+     * Writes an input stream to a file.
      * 
-     * @param file The file to open.
+     * @param file The file to write to.
      */
-    async createWriteStream(file: string): Promise<NodeJS.WritableStream> {
-        return createWriteStream(file);
+    async copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void> {
+        await waitPipe(
+            input,
+            createWriteStream(file)
+        );
     }
-
 }

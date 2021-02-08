@@ -48,9 +48,9 @@ export interface IFileSystem {
     createReadStream(file: string): Promise<NodeJS.ReadableStream>;
 
     /**
-     * Creates a writable stream for a file.
+     * Writes an input stream to a file.
      * 
-     * @param file The file to open.
+     * @param file The file to write to.
      */
-    createWriteStream(file: string): Promise<NodeJS.WritableStream>;
+    copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void>;
 }

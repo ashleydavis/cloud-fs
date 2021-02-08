@@ -64,33 +64,34 @@ export class AWSFileSystem implements IFileSystem {
     }        
 
     /**
-     * Creates a writable stream for a file.
+     * Writes an input stream to a file.
      * 
-     * @param file The file to open.
+     * @param file The file to write to.
      */
-    async createWriteStream(file: string): Promise<NodeJS.WritableStream> {
-        if (file[0] === "/") {
-            file = file.substring(1);
-        }
-        const slashIndex = file.indexOf("/");
-        const bucketName = file.substring(0, slashIndex);
-        const key = file.substring(slashIndex+1);
-
-        const passThru = new PassThrough();
-        const params = {
-            Bucket: bucketName, 
-            Key: key, 
-            Body: passThru,
-        };
-
-        this.s3.upload(params, (err: Error) => {
-            if (err) {
-                console.error("Error uploading to s3:")
-                console.error(err && err.stack || err);
+    copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            if (file[0] === "/") {
+                file = file.substring(1);
             }
+            const slashIndex = file.indexOf("/");
+            const bucketName = file.substring(0, slashIndex);
+            const key = file.substring(slashIndex+1);
+    
+            const params = {
+                Bucket: bucketName, 
+                Key: key, 
+                Body: input,
+            };
+    
+            this.s3.upload(params, (err: Error) => {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    resolve();
+                }
+            });
         });
-          
-        return passThru;
     }
 
 }

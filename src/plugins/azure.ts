@@ -108,11 +108,11 @@ export class AzureFileSystem implements IFileSystem {
     }
 
     /**
-     * Creates a writable stream for a file.
+     * Writes an input stream to a file.
      * 
-     * @param file The file to open.
+     * @param file The file to write to.
      */
-    async createWriteStream(file: string): Promise<NodeJS.WritableStream> {
+    async copyStreamTo(file: string, input: NodeJS.ReadableStream): Promise<void> {
         throw new Error("Not implemented");
     }
 

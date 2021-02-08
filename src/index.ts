@@ -67,17 +67,6 @@ export class CloudFS {
     }
 
     //
-    // Pipe input stream to output stream and await completion.
-    //
-    private waitPipe(input: NodeJS.ReadableStream, output: NodeJS.WritableStream): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            input.pipe(output)
-                .on("error", reject)
-                .on("finish", resolve);
-        });
-    }
-
-    //
     // Copies a single file.
     //
     private async copyFile(srcFs: IFileSystem, srcFilePath: string, destFs: IFileSystem, destFilePath: string): Promise<void> {
@@ -88,8 +77,7 @@ export class CloudFS {
         }
 
         const input = await srcFs.createReadStream(srcFilePath);
-        const output = await destFs.createWriteStream(destFilePath);
-        await this.waitPipe(input, output);
+        await destFs.copyStreamTo(destFilePath, input);
     }
 
     //
