@@ -51,7 +51,7 @@ export class CloudFS {
     
         return {
             fileSystem: path.substring(0, sepIndex), 
-            path: path.substring(sepIndex+1) || "."
+            path: path.substring(sepIndex+1) || "/"
         };
     }
     

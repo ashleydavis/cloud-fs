@@ -21,7 +21,11 @@ export class AzureFileSystem implements IFileSystem {
     private blobService: BlobServiceClient;
     
     constructor() {
-        this.blobService = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING as string);
+        const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING as string;
+        if (!AZURE_STORAGE_CONNECTION_STRING) {
+            throw new Error("Please provide Azure storage connection string in the environment variable AZURE_STORAGE_CONNECTION_STRING.");
+        }
+        this.blobService = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
     }  
 
     //
@@ -61,14 +65,13 @@ export class AzureFileSystem implements IFileSystem {
      * @param dir List files and directories under this directory.
      */
     async* ls(dir: string): AsyncIterable<IFsNode> {
-        if (dir === "" || dir === "." || dir === "/") { //todo: cope with cur directory properly
+        if (dir === "" || dir === "/") {
             yield* this.enumerateContainers();
         }
         else {
             yield* this.enumerateBlobs(dir);
         }
     }
-
 
     /**
      * Ensure that the requested directory exists, creates it if it doesn't exist.

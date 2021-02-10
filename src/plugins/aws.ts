@@ -26,6 +26,22 @@ export class AWSFileSystem implements IFileSystem {
         this.s3 = new aws.S3();
     }  
 
+    //
+    // Extract relevant details from the path.
+    //
+    private extractPath(file: string) {
+        if (file[0] === "/") {
+            file = file.substring(1);
+        }
+        const slashIndex = file.indexOf("/");
+        const bucketName = file.substring(0, slashIndex);
+        const key = file.substring(slashIndex + 1);
+        return { 
+            Bucket: bucketName, 
+            Key: key,
+        };
+    }
+
     /**
      * Lists files and directories.
      * 
@@ -34,7 +50,6 @@ export class AWSFileSystem implements IFileSystem {
     async* ls(dir: string): AsyncIterable<IFsNode> {
         throw new Error("Not implemented");
     }
-
 
     /**
      * Ensure that the requested directory exists, creates it if it doesn't exist.
@@ -51,9 +66,19 @@ export class AWSFileSystem implements IFileSystem {
      * @param file The file to check for existance.
      */
     async exists(file: string): Promise<boolean> {
-        // todo: throw new Error("Not implemented");
-        return false;
-    }
+        try { 
+            await this.s3.headObject(this.extractPath(file)).promise();
+            return true;
+        } 
+        catch (err) {
+            if (err.code === 'NotFound') {
+                return false;
+            }
+            else {
+                throw err;
+            }
+        }
+    }   
 
     /**
      * Creates a readable stream for a file.
@@ -71,21 +96,14 @@ export class AWSFileSystem implements IFileSystem {
      */
     copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            if (file[0] === "/") {
-                file = file.substring(1);
-            }
-            const slashIndex = file.indexOf("/");
-            const bucketName = file.substring(0, slashIndex);
-            const key = file.substring(slashIndex+1);
-    
+            const { Bucket, Key } = this.extractPath(file);
             const params: S3.Types.PutObjectRequest = {
-                Bucket: bucketName, 
-                Key: key, 
+                Bucket: Bucket, 
+                Key: Key, 
                 Body: input.stream,
                 ContentType: input.contentType,
                 ContentLength: input.contentLength,
-            };
-    
+            };    
             this.s3.upload(params, (err: Error) => {
                 if (err) {
                     reject(err);
@@ -96,5 +114,4 @@ export class AWSFileSystem implements IFileSystem {
             });
         });
     }
-
 }
