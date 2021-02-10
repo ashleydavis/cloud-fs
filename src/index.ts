@@ -38,15 +38,20 @@ function joinPath(...args: string[]): string {
 export class CloudFS {
 
     //
+    // The current working directory.
+    //
+    private workingDir: string = "/";
+    
+    //
     // Parses a path and extract the file system ID.
     //
     private parsePath(path: string): IParsedPath {
-        const sepIndex = path.indexOf(":");
+        if (path[0] === "/") {
+            path = path.substring(1);
+        }
+        const sepIndex = path.indexOf("/");
         if (sepIndex === -1) {
-            return { 
-                fileSystem: "local", 
-                path: path
-            };
+            throw new Error(`Expected a slash separator.`);
         }
     
         return {
@@ -54,13 +59,77 @@ export class CloudFS {
             path: path.substring(sepIndex+1) || "/"
         };
     }
+
+    //
+    // Get the full path based on the current directory.
+    //
+    private getFullDir(path?: string): string {
+        if (path === undefined || path.length === 0) {
+            return this.workingDir;
+        }
+
+        if (path[0] === "/") {
+            // Absolute path.
+            return path;
+        }
+        else {
+            return joinPath(this.workingDir, path);
+        }
+    }
+
+    /**
+     * Gets the current working directory.
+     */
+    pwd(): string {
+        return this.workingDir;
+    }
+
+    /**
+     * Changes the current working directory.
+     * 
+     * @param dir The directory to change to.
+     */
+    cd(dir: string): void {
+        if (dir.length === 0) {
+            return; // No change.
+        }
+
+        dir = normalizePath(dir);
+
+        if (dir[0] === "/") {
+            // Absolute path.
+            this.workingDir = dir;
+        }
+        else {
+            this.workingDir = joinPath(this.workingDir, dir);
+        }
+    }
     
     /**
      * Lists files and directories.
      * 
      * @param dir List files and directories under this directory.
      */
-    async* ls(dir: string): AsyncIterable<IFsNode> {
+    async* ls(dir?: string): AsyncIterable<IFsNode> {
+        dir = this.getFullDir(dir);
+            if (dir === "/") {
+            yield* [
+                {
+                    isDir: true,
+                    name: "az",
+                },
+                {
+                    isDir: true,
+                    name: "aws",
+                },
+                {
+                    isDir: true,
+                    name: "local",
+                },
+            ];
+            return;
+        }
+
         const path = this.parsePath(dir);
         const fs = fileSystems[path.fileSystem];
         yield* fs.ls(path.path);
@@ -110,8 +179,8 @@ export class CloudFS {
      * @param dest The destination directory to copy to.
      */
     async cp(src: string, dest: string): Promise<void> {
-        const srcPath = this.parsePath(src);
-        const destPath = this.parsePath(dest);
+        const srcPath = this.parsePath(this.getFullDir(src));
+        const destPath = this.parsePath(this.getFullDir(dest));
         const srcFs = fileSystems[srcPath.fileSystem];
         const destFs = fileSystems[destPath.fileSystem];
         const isSrcDirectory = srcPath.path[srcPath.path.length-1] === "/";

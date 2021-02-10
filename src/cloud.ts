@@ -4,12 +4,27 @@ const app =  new Vorpal();
 const cloudFS = new CloudFS();
 
 app
+    .command("pwd", "Prints the current working directory.")
+    .action(async args => {
+        console.log(cloudFS.pwd());
+    });
+
+app
+    .command("cd <dir>", "Changes the working directory.")
+    // .example("cd /", "Change to the root directory.")
+    // .example("cd /aws", "Change to the root directory for AWS storage.")
+    // .example("cd /az", "Change to the root directory for Azure storage.")
+    .action(async args => {
+        cloudFS.cd(args.dir);
+    });
+    
+app
     .command("ls [dir]", "Lists files and directories.")
     .option("-l, --long", "Enables long listing format")
     // .example("ls subdir", "Lists files and directories under 'subdir'.")
     // .example("ls aws:subdir", "Lists files and directories in AWS under 'subdir'.")
     .action(async args => {
-        const nodes = cloudFS.ls(args.dir && args.dir.trim() || "/");
+        const nodes = cloudFS.ls(args.dir && args.dir.trim());
         if (args.long) {
             for await (const node of nodes) {
                 if (node.isDir) {
