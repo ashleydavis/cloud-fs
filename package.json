@@ -1,6 +1,6 @@
 {
-    "name": "cloud-fs",
-    "version": "1.0.0",
+    "name": "@codecapers/cloud-fs",
+    "version": "0.0.1",
     "description": "Commands for working with files in cloud storage.",
     "scripts": {
         "start": "node ./build/cloud.js",

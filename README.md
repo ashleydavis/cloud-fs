@@ -7,7 +7,7 @@ PROTOTYPING. WORK IN PROGRESS
 # Install
 
 ```bash
-npm install --save cloud-fs
+npm install -g @codecapers/cloud-fs
 ```
 
 # Configure
