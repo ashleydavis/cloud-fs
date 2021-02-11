@@ -4,6 +4,7 @@ import { LocalFileSystem } from "./plugins/local";
 import * as path from "path";
 import { AWSFileSystem } from "./plugins/aws";
 import ProgressBar = require("progress");
+import * as crypto from "crypto";
 
 //
 // Parses a path and extract the file system ID.
@@ -21,6 +22,15 @@ const fileSystems: { [name: string]: IFileSystem } = {
     az: new AzureFileSystem(),
     aws: new AWSFileSystem(),
 };
+
+/**
+ * Results of a file comparison.
+ */
+export interface IFsCompareItem {
+    path: string;
+    state: "different" | "source only" | "identical";
+    reason?: string;
+}
 
 //
 // Normalizes a path.
@@ -114,13 +124,13 @@ export class CloudFS {
     //
     // List files and directories recursively for a particular file system.
     // 
-    private async* _ls(fs: IFileSystem, dir: string, recursive?: boolean): AsyncIterable<IFsNode> {
+    private async* _ls(fs: IFileSystem, dir: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
         for await (const node of fs.ls(dir)) {
             yield node;
 
-            if (recursive && node.isDir) {
+            if (options?.recursive && node.isDir) {
                 const subPath = joinPath(dir, node.name);
-                for await (const subNode of this._ls(fs, subPath, recursive)) {
+                for await (const subNode of this._ls(fs, subPath, options)) {
                     yield {
                         isDir: subNode.isDir,
                         name: joinPath(node.name, subNode.name),
@@ -136,7 +146,7 @@ export class CloudFS {
      * @param dir List files and directories under this directory.
      * @param recursive List files and directories for the entire subtree.
      */
-    async* ls(dir?: string, recursive?: boolean): AsyncIterable<IFsNode> {
+    async* ls(dir?: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
         dir = this.getFullDir(dir);
         if (dir === "/") {
             const rootDirs = ["az", "aws", "local"];
@@ -146,9 +156,9 @@ export class CloudFS {
                     name: rootDir,
                 };
     
-                if (recursive) {
+                if (options?.recursive) {
                     const subPath = joinPath("/", rootDir);
-                    for await (const node of this.ls(subPath, recursive)) {
+                    for await (const node of this.ls(subPath, options)) {
                         yield {
                             isDir: node.isDir,
                             name: joinPath(subPath, node.name),
@@ -165,7 +175,7 @@ export class CloudFS {
         if (!fs) {
             throw new Error(`Failed to find file system provider specified by "${path.fileSystem}".`);
         }
-        yield* this._ls(fs, path.path, recursive);
+        yield* this._ls(fs, path.path, options);
     }
 
     //
@@ -183,16 +193,25 @@ export class CloudFS {
     }
 
     //
-    // Copies a directory recursively.
+    // Count files recursively under the requested path.
     //
-    private async copyDir(srcFs: IFileSystem, srcFsId: string, srcPath: string, destFs: IFileSystem, destFsId: string, destPath: string): Promise<void> {
-        const nodes = this._ls(srcFs, srcPath, true);
+    private async countFiles(srcFs: IFileSystem, srcPath: string, options?: { recursive?: boolean }): Promise<number> {
+        const nodes = this._ls(srcFs, srcPath, { recursive: options?.recursive });
         let fileCount = 0;
         for await (const node of nodes) {
             if (!node.isDir) {
                 fileCount += 1;
             }
         }
+        return fileCount;
+    }
+
+    //
+    // Copies a directory recursively.
+    //
+    private async copyDir(srcFs: IFileSystem, srcFsId: string, srcPath: string, destFs: IFileSystem, destFsId: string, destPath: string): Promise<void> {
+        
+        const fileCount = await this.countFiles(srcFs, srcPath, { recursive: true });
         
         const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
             complete: '=',
@@ -201,7 +220,7 @@ export class CloudFS {
             total: fileCount,
         });
 
-        const nodes2 = this._ls(srcFs, srcPath, true);
+        const nodes2 = this._ls(srcFs, srcPath, { recursive: true });
         for await (const node of nodes2) {
             if (node.isDir) {
                 // Skip directories. 
@@ -211,8 +230,6 @@ export class CloudFS {
 
             const srcFilePath = joinPath(srcPath, node.name);
             const fileBasename = node.name;
-
-            await destFs.ensureDir(destPath);
 
             const destFilePath = joinPath(destPath, fileBasename);
             // console.log(`cp ${srcFsId}:${srcFilePath} => ${destFsId}:${destFilePath}`); //todo: move this into copyFile
@@ -250,12 +267,121 @@ export class CloudFS {
         else {
             const fileBasename = path.basename(srcPath.path);
     
-            await destFs.ensureDir(destPath.path);
-    
             const destFilePath = joinPath(destPath.path, fileBasename);
             console.log(`"cp ${srcPath.fileSystem}:${srcPath.path} => ${destPath.fileSystem}:${destFilePath}"`); //todo: move into copyFile.
     
             await this.copyFile(srcFs, srcPath.path, destFs, destFilePath);            
         }
-     }
+    }
+
+    //
+    // Hash an input stream.
+    //
+    private hashStream(input: NodeJS.ReadableStream): Promise<number> {
+        return new Promise<number>((resolve, reject) => {
+            const hash = crypto.createHash('sha1');
+            hash.setEncoding('hex');
+            input.on('error', reject);
+
+            input.on('end', () => {
+                hash.end();
+                resolve(hash.read()); // Retreive the hashed value.
+            });
+            
+            input.pipe(hash); // Pipe input stream to the hash.
+        });
+    }
+
+    /**
+     * Compare the source directoy to the destination.
+     * Returns a list of files that are different to those in the destination or that don't exist
+     * in the destination at all.
+     * 
+     * @param src The source directory.
+     * @param dest The destination directory.
+     */
+    async* compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> {
+
+        const srcPath = this.parsePath(this.getFullDir(src));
+        const destPath = this.parsePath(this.getFullDir(dest));
+        const srcFs = fileSystems[srcPath.fileSystem];
+        if (!srcFs) {
+            throw new Error(`Failed to find file system provider with name "${srcPath.fileSystem}".`);
+        }
+        const destFs = fileSystems[destPath.fileSystem];
+        if (!destFs) {
+            throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
+        }
+
+        const fileCount = await this.countFiles(srcFs, srcPath.path, { recursive: options?.recursive });
+        console.log(`Comparing ${fileCount} files.`);
+
+        const bar = new ProgressBar("   Comparing [:bar] :current/:total :percent", { 
+            complete: '=',
+            incomplete: ' ',
+            width: 20,
+            total: fileCount,
+        });
+        
+        const nodes = this.ls(src, { recursive: options?.recursive });
+
+        for await (const node of nodes) {
+            if (node.isDir) {
+                continue; // Don't need to touch directories.
+            }
+
+            const destItemPath = joinPath(destPath.path, node.name);
+            if (!destFs.exists(destItemPath)) {
+                yield {
+                    path: node.name,
+                    state: "source only",
+                };
+            }
+            else {
+                const srcItemPath = joinPath(srcPath.path, node.name);
+                const [ srcStream, destStream ] = await Promise.all([
+                    srcFs.createReadStream(srcItemPath),
+                    destFs.createReadStream(destItemPath)
+                ]);
+
+                if (srcStream.contentLength !== destStream.contentLength) {
+                    yield {
+                        path: node.name,
+                        state: "different",
+                        reason: "content-type",
+                    };
+                }
+                if (srcStream.contentLength !== destStream.contentLength || srcStream.contentLength !== destStream.contentLength) {
+                    yield {
+                        path: node.name,
+                        state: "different",
+                        reason: "content-length",
+                    };
+                }
+                else {
+                    const [ srcHash, destHash ] = await Promise.all([
+                        this.hashStream(srcStream.stream),
+                        this.hashStream(destStream.stream)
+                    ]);
+    
+                    if (srcHash !== destHash) {
+                        yield {
+                            path: node.name,
+                            state: "different",
+                            reason: "hash",
+                        };
+                    }
+                    else if (options?.showIdentical) {
+                        yield {
+                            path: node.name,
+                            state: "identical",
+                        };
+                    }
+                }
+            }
+
+            bar.tick();
+        }
+    }
 }
+ 

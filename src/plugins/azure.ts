@@ -79,15 +79,6 @@ export class AzureFileSystem implements IFileSystem {
     }
 
     /**
-     * Ensure that the requested directory exists, creates it if it doesn't exist.
-     * 
-     * @param dir The directory to create.
-     */
-    async ensureDir(dir: string): Promise<void> {
-        throw new Error("Not implemented");
-    }
-
-    /**
      * Returns true if the specified file already exists in the file system.
      * 
      * @param file The file to check for existance.

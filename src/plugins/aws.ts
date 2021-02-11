@@ -14,8 +14,6 @@ https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-your-c
 
 import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
 import * as aws from "aws-sdk";
-import * as path from "path";
-import { PassThrough } from "stream";
 import { S3 } from "aws-sdk";
 
 export class AWSFileSystem implements IFileSystem {
@@ -52,15 +50,6 @@ export class AWSFileSystem implements IFileSystem {
     }
 
     /**
-     * Ensure that the requested directory exists, creates it if it doesn't exist.
-     * 
-     * @param dir The directory to create.
-     */
-    async ensureDir(dir: string): Promise<void> {
-        // todo: throw new Error("Not implemented");
-    }
-
-    /**
      * Returns true if the specified file already exists in the file system.
      * 
      * @param file The file to check for existance.
@@ -79,6 +68,24 @@ export class AWSFileSystem implements IFileSystem {
             }
         }
     }   
+    
+    //
+    // Gets metadata for the asset.
+    //
+    private getMetadata(params: S3.Types.HeadObjectRequest): Promise<S3.Types.HeadObjectOutput> {
+        return new Promise<S3.Types.HeadObjectOutput>((resolve, reject) => {
+            this.s3.headObject(params,
+                (err, data) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    else {
+                        resolve(data);
+                    }
+                }
+            );
+        });
+    }
 
     /**
      * Creates a readable stream for a file.
@@ -86,7 +93,17 @@ export class AWSFileSystem implements IFileSystem {
      * @param file The file to open.
      */
     async createReadStream(file: string): Promise<IFileReadResponse> {
-        throw new Error("Not implemented");
+        const params = this.extractPath(file);
+        const metadata = await this.getMetadata(params);
+        if (!metadata) {
+            throw new Error(`Failed to load metadata for file ${file}.`);
+        }
+        return {
+            stream: this.s3.getObject(params)
+                .createReadStream(),
+            contentType: metadata.ContentType,
+            contentLength: metadata.ContentLength,
+        };
     }        
 
     /**

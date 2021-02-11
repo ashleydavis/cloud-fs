@@ -34,6 +34,7 @@
     "homepage": "https://github.com/ashleydavis/cloud-fs#readme",
     "dependencies": {
         "@azure/storage-blob": "^12.4.1",
+        "ascii-table": "0.0.9",
         "aws-sdk": "^2.839.0",
         "fs-extra": "^9.1.0",
         "moment": "^2.29.1",

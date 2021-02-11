@@ -28,7 +28,7 @@ export interface IFileReadResponse {
     /**
      * Readable stream for the file.
      */
-    stream: NodeJS.ReadableStream
+    stream: NodeJS.ReadableStream;
 }
 
 /**
@@ -42,13 +42,6 @@ export interface IFileSystem {
      * @param dir List files and directories under this directory.
      */
     ls(dir: string): AsyncIterable<IFsNode>;
-
-    /**
-     * Ensure that the requested directory exists, creates it if it doesn't exist.
-     * 
-     * @param dir The directory to create.
-     */
-    ensureDir(dir: string): Promise<void>;
 
     /**
      * Returns true if the specified file already exists in the file system.

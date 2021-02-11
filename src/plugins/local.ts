@@ -27,15 +27,6 @@ export class LocalFileSystem implements IFileSystem {
     }
 
     /**
-     * Ensure that the requested directory exists, creates it if it doesn't exist.
-     * 
-     * @param dir The directory to create.
-     */
-    async ensureDir(dir: string): Promise<void> {
-        await fsExtra.ensureDir(dir);
-    }
-
-    /**
      * Returns true if the specified file already exists in the file system.
      * 
      * @param file The file to check for existance.
@@ -63,6 +54,7 @@ export class LocalFileSystem implements IFileSystem {
      * @param file The file to write to.
      */
     async copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
+        await fsExtra.ensureDir(path.dirname(file));
         await waitPipe(
             input.stream,
             createWriteStream(file)

@@ -2,6 +2,7 @@ import * as Vorpal from "vorpal";
 import { CloudFS } from ".";
 const app =  new Vorpal();
 const cloudFS = new CloudFS();
+const AsciiTable = require('ascii-table');
 
 type VorpalFn = (args: Vorpal.Args) => Promise<void>;
 
@@ -87,6 +88,30 @@ app
     // .example("cp somedirectory/ someotherdirectory/", "Copies all files in some directory to another directory.")
     .action(wrapAction(async args => {
         await cloudFS.cp(args.src.trim(), args.dest.trim());
+    }));
+
+app
+    .command("compare <src> <dest>", "Copies to directories and lists files from the source that are different in the destination or don't exists at all there.")
+    .option("-r, --recursive", "Compoares files recursively.")
+    .option("-i, --identical", "Show results for identical files (as well as different/source only.")
+    .action(wrapAction(async args => {
+        const diffs = cloudFS.compare(args.src.trim(), args.dest.trim(), { recursive: args.options.recursive, showIdentical: args.options.identical });
+        const table = new AsciiTable('A Title');
+        table.setHeading("Path", "State", "Reason");
+
+        let fileCount = 0;
+        
+        for await (const diff of diffs) {
+            table.addRow(diff.path, diff.state, diff.reason ?? "");
+            fileCount += 1;
+        }
+
+        if (fileCount > 0) {
+            console.log(table.toString());
+        }
+        else {
+            console.log(`No results were found.`);
+        }
     }));
 
 if (process.argv.length === 2) {
