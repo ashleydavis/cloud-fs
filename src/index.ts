@@ -134,6 +134,8 @@ export class CloudFS {
                     yield {
                         isDir: subNode.isDir,
                         name: joinPath(node.name, subNode.name),
+                        contentType: node.contentType,
+                        contentLength: node.contentLength,
                     }   
                 }
             }
@@ -162,7 +164,9 @@ export class CloudFS {
                         yield {
                             isDir: node.isDir,
                             name: joinPath(subPath, node.name),
-                        }
+                            contentType: node.contentType,
+                            contentLength: node.contentLength,
+                        };
                     }
                 }
             }

@@ -57,9 +57,14 @@ export class AzureFileSystem implements IFileSystem {
 
         const containerClient = this.blobService.getContainerClient(containerName);
         for await (const item of containerClient.listBlobsByHierarchy("/",  { prefix: blobPath })) {
+            const blobClient = containerClient.getBlobClient(item.name);
+            const metadata = await blobClient.getProperties();
+
             yield {
                 isDir: item.kind === "prefix",
                 name: path.basename(item.name),
+                contentType: metadata.contentType,
+                contentLength: metadata.contentLength,
             };
         }
     }

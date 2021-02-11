@@ -12,6 +12,16 @@ export interface IFsNode {
      * Name of the file or directory.
      */
     name: string;
+
+    /**
+     * Type of content within the file.
+     */
+    contentType?: string;
+
+    /**
+     * Size of the file.
+     */
+    contentLength?: number;
 }
 
 export interface IFileReadResponse {
