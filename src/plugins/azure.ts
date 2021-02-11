@@ -48,12 +48,17 @@ export class AzureFileSystem implements IFileSystem {
         }
         const slashIndex = dir.indexOf("/");
         const containerName = slashIndex >= 0 ? dir.substring(0, slashIndex) : dir;
-        const blobPath = slashIndex >= 0 ? dir.substring(slashIndex) : "/";
+        let blobPath = slashIndex >= 0 ? dir.substring(slashIndex+1) : "";
+        if (blobPath.length > 0) {
+            if (blobPath[blobPath.length-1] !== "/") {
+                blobPath += "/";
+            }
+        }
 
         const containerClient = this.blobService.getContainerClient(containerName);
-        for await (const item of containerClient.listBlobsByHierarchy(blobPath)) {
+        for await (const item of containerClient.listBlobsByHierarchy("/",  { prefix: blobPath })) {
             yield {
-                isDir: item.name[item.name.length-1] === "/",
+                isDir: item.kind === "prefix",
                 name: path.basename(item.name),
             };
         }
