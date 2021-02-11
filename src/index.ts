@@ -3,6 +3,7 @@ import { IFileSystem, IFsNode } from "./plugins/file-system";
 import { LocalFileSystem } from "./plugins/local";
 import * as path from "path";
 import { AWSFileSystem } from "./plugins/aws";
+import ProgressBar = require("progress");
 
 //
 // Parses a path and extract the file system ID.
@@ -185,22 +186,43 @@ export class CloudFS {
     // Copies a directory recursively.
     //
     private async copyDir(srcFs: IFileSystem, srcFsId: string, srcPath: string, destFs: IFileSystem, destFsId: string, destPath: string): Promise<void> {
-        const nodes = srcFs.ls(srcPath);
+        const nodes = this._ls(srcFs, srcPath, true);
+        let fileCount = 0;
         for await (const node of nodes) {
+            if (!node.isDir) {
+                fileCount += 1;
+            }
+        }
+        
+        const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
+            complete: '=',
+            incomplete: ' ',
+            width: 20,
+            total: fileCount,
+        });
+
+        const nodes2 = this._ls(srcFs, srcPath, true);
+        for await (const node of nodes2) {
             if (node.isDir) {
-                await this.copyDir(srcFs, srcFsId, joinPath(srcPath, node.name), destFs, destFsId, joinPath(destPath, node.name));
+                // Skip directories. 
+                // The call to _ls already recurses.
+                continue;
             }
-            else {
-                const srcFilePath = joinPath(srcPath, node.name);
-                const fileBasename = node.name;
-    
-                await destFs.ensureDir(destPath);
-    
-                const destFilePath = joinPath(destPath, fileBasename);
-                console.log(`cp ${srcFsId}:${srcFilePath} => ${destFsId}:${destFilePath}`);
-    
-                await this.copyFile(srcFs, srcFilePath, destFs, destFilePath);
-            }
+
+            const srcFilePath = joinPath(srcPath, node.name);
+            const fileBasename = node.name;
+
+            await destFs.ensureDir(destPath);
+
+            const destFilePath = joinPath(destPath, fileBasename);
+            // console.log(`cp ${srcFsId}:${srcFilePath} => ${destFsId}:${destFilePath}`); //todo: move this into copyFile
+
+            await this.copyFile(srcFs, srcFilePath, destFs, destFilePath);
+
+            bar.tick();
+
+            //TODO: update cur and total as new files are discovered.
+            // bar.curr += 1;
         }
     }
 
@@ -214,7 +236,13 @@ export class CloudFS {
         const srcPath = this.parsePath(this.getFullDir(src));
         const destPath = this.parsePath(this.getFullDir(dest));
         const srcFs = fileSystems[srcPath.fileSystem];
+        if (!srcFs) {
+            throw new Error(`Failed to find file system provider with name "${srcPath.fileSystem}".`);
+        }
         const destFs = fileSystems[destPath.fileSystem];
+        if (!destFs) {
+            throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
+        }
         const isSrcDirectory = srcPath.path[srcPath.path.length-1] === "/";
         if (isSrcDirectory) {
             await this.copyDir(srcFs, srcPath.fileSystem, srcPath.path, destFs, destPath.fileSystem, destPath.path);
@@ -225,7 +253,7 @@ export class CloudFS {
             await destFs.ensureDir(destPath.path);
     
             const destFilePath = joinPath(destPath.path, fileBasename);
-            console.log(`"cp ${srcPath.fileSystem}:${srcPath.path} => ${destPath.fileSystem}:${destFilePath}"`);
+            console.log(`"cp ${srcPath.fileSystem}:${srcPath.path} => ${destPath.fileSystem}:${destFilePath}"`); //todo: move into copyFile.
     
             await this.copyFile(srcFs, srcPath.path, destFs, destFilePath);            
         }
