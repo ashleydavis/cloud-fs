@@ -46,9 +46,14 @@ export class CloudFS {
     // Parses a path and extract the file system ID.
     //
     private parsePath(path: string): IParsedPath {
+        if (path === undefined || path.length === 0) {
+            throw new Error(`Empty path!`);
+        }
+
         if (path[0] === "/") {
             path = path.substring(1);
         }
+
         const sepIndex = path.indexOf("/");
         if (sepIndex === -1) {
             throw new Error(`Expected a slash separator.`);
@@ -104,35 +109,62 @@ export class CloudFS {
             this.workingDir = joinPath(this.workingDir, dir);
         }
     }
+
+    //
+    // List files and directories recursively for a particular file system.
+    // 
+    private async* _ls(fs: IFileSystem, dir: string, recursive?: boolean): AsyncIterable<IFsNode> {
+        for await (const node of fs.ls(dir)) {
+            yield node;
+
+            if (recursive && node.isDir) {
+                const subPath = joinPath(dir, node.name);
+                for await (const subNode of this._ls(fs, subPath, recursive)) {
+                    yield {
+                        isDir: subNode.isDir,
+                        name: joinPath(node.name, subNode.name),
+                    }   
+                }
+            }
+        }
+    }
     
     /**
      * Lists files and directories.
      * 
      * @param dir List files and directories under this directory.
+     * @param recursive List files and directories for the entire subtree.
      */
-    async* ls(dir?: string): AsyncIterable<IFsNode> {
+    async* ls(dir?: string, recursive?: boolean): AsyncIterable<IFsNode> {
         dir = this.getFullDir(dir);
-            if (dir === "/") {
-            yield* [
-                {
+        if (dir === "/") {
+            const rootDirs = ["az", "aws", "local"];
+            for (const rootDir of rootDirs) {
+                yield {
                     isDir: true,
-                    name: "az",
-                },
-                {
-                    isDir: true,
-                    name: "aws",
-                },
-                {
-                    isDir: true,
-                    name: "local",
-                },
-            ];
+                    name: rootDir,
+                };
+    
+                if (recursive) {
+                    const subPath = joinPath("/", rootDir);
+                    for await (const node of this.ls(subPath, recursive)) {
+                        yield {
+                            isDir: node.isDir,
+                            name: joinPath(subPath, node.name),
+                        }
+                    }
+                }
+            }
+
             return;
         }
 
         const path = this.parsePath(dir);
         const fs = fileSystems[path.fileSystem];
-        yield* fs.ls(path.path);
+        if (!fs) {
+            throw new Error(`Failed to find file system provider specified by "${path.fileSystem}".`);
+        }
+        yield* this._ls(fs, path.path, recursive);
     }
 
     //
