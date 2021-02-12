@@ -13,7 +13,7 @@ https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-no
 */
 
 import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
-import { BlobServiceClient } from '@azure/storage-blob';
+import { BlobGetPropertiesResponse, BlobServiceClient } from '@azure/storage-blob';
 import * as path from "path";
 
 export class AzureFileSystem implements IFileSystem {
@@ -56,15 +56,21 @@ export class AzureFileSystem implements IFileSystem {
         }
 
         const containerClient = this.blobService.getContainerClient(containerName);
+
         for await (const item of containerClient.listBlobsByHierarchy("/",  { prefix: blobPath })) {
-            const blobClient = containerClient.getBlobClient(item.name);
-            const metadata = await blobClient.getProperties();
+
+            const isDir = item.kind === "prefix";
+            let metadata: BlobGetPropertiesResponse | undefined;
+            if (!isDir) {
+                const blobClient = containerClient.getBlobClient(item.name);
+                metadata = await blobClient.getProperties();
+            }
 
             yield {
-                isDir: item.kind === "prefix",
+                isDir: isDir,
                 name: path.basename(item.name),
-                contentType: metadata.contentType,
-                contentLength: metadata.contentLength,
+                contentType: metadata?.contentType,
+                contentLength: metadata?.contentLength,
             };
         }
     }

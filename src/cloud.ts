@@ -56,7 +56,7 @@ app
         let fileCount = 0;
         let dirCount = 0;
 
-        const table = new AsciiTable(`ls ${dir}`);
+        const table = new AsciiTable(`ls`);
         table.setHeading("File", "Type", "Length");
 
         for await (const node of nodes) {
@@ -95,7 +95,7 @@ app
     .option("-i, --identical", "Show results for identical files (as well as different/source only.")
     .action(wrapAction(async args => {
         const diffs = cloudFS.compare(args.src.trim(), args.dest.trim(), { recursive: args.options.recursive, showIdentical: args.options.identical });
-        const table = new AsciiTable('A Title');
+        const table = new AsciiTable('compare');
         table.setHeading("Path", "State", "Reason");
 
         let fileCount = 0;
