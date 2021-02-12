@@ -46,6 +46,34 @@ function joinPath(...args: string[]): string {
     return normalizePath(path.join(...args));
 }
 
+//
+// Hash an input stream.
+//
+function hashStream(input: NodeJS.ReadableStream): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+        const hash = crypto.createHash('sha1');
+        hash.setEncoding('hex');
+        input.on('error', reject);
+
+        input.on('end', () => {
+            hash.end();
+            resolve(hash.read()); // Retreive the hashed value.
+        });
+        
+        input.pipe(hash); // Pipe input stream to the hash.
+    });
+}
+
+//
+// Sleep for a specified number of milliseconds.
+//
+function sleep(ms: number): Promise<void> {
+    return new Promise<void>(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
+
+
 export class CloudFS {
 
     //
@@ -278,24 +306,6 @@ export class CloudFS {
         }
     }
 
-    //
-    // Hash an input stream.
-    //
-    private hashStream(input: NodeJS.ReadableStream): Promise<number> {
-        return new Promise<number>((resolve, reject) => {
-            const hash = crypto.createHash('sha1');
-            hash.setEncoding('hex');
-            input.on('error', reject);
-
-            input.on('end', () => {
-                hash.end();
-                resolve(hash.read()); // Retreive the hashed value.
-            });
-            
-            input.pipe(hash); // Pipe input stream to the hash.
-        });
-    }
-
     /**
      * Compare the source directoy to the destination.
      * Returns a list of files that are different to those in the destination or that don't exist
@@ -305,6 +315,10 @@ export class CloudFS {
      * @param dest The destination directory.
      */
     async* compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> {
+
+        let totalFiles = 0;
+        let fileListComplete = false;
+        const queue: IFsNode[] = [];
 
         const srcPath = this.parsePath(this.getFullDir(src));
         const destPath = this.parsePath(this.getFullDir(dest));
@@ -317,75 +331,109 @@ export class CloudFS {
             throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
         }
 
-        const fileCount = await this.countFiles(srcFs, srcPath.path, { recursive: options?.recursive });
-        console.log(`Comparing ${fileCount} files.`);
-
         const bar = new ProgressBar("   Comparing [:bar] :current/:total :percent", { 
             complete: '=',
             incomplete: ' ',
             width: 20,
-            total: fileCount,
+            total: 1,
         });
-        
-        const nodes = this.ls(src, { recursive: options?.recursive });
 
-        for await (const node of nodes) {
-            if (node.isDir) {
-                continue; // Don't need to touch directories.
+        //
+        // Get a list of files into a queue.
+        //
+        const getFiles = async (): Promise<void> => {
+            const nodes = this.ls(src, { recursive: options?.recursive });
+            for await (const node of nodes) {
+                if (node.isDir) {
+                    continue; // Don't need to touch directories.
+                }
+
+                queue.push(node); // Enqueue.
+                totalFiles += 1;
             }
 
-            const destItemPath = joinPath(destPath.path, node.name);
-            if (!destFs.exists(destItemPath)) {
-                yield {
-                    path: node.name,
-                    state: "source only",
-                };
-            }
-            else {
-                const srcItemPath = joinPath(srcPath.path, node.name);
-                const [ srcStream, destStream ] = await Promise.all([
-                    srcFs.createReadStream(srcItemPath),
-                    destFs.createReadStream(destItemPath)
-                ]);
-
-                if (srcStream.contentLength !== destStream.contentLength) {
-                    yield {
-                        path: node.name,
-                        state: "different",
-                        reason: "content-type",
-                    };
-                }
-                if (srcStream.contentLength !== destStream.contentLength || srcStream.contentLength !== destStream.contentLength) {
-                    yield {
-                        path: node.name,
-                        state: "different",
-                        reason: "content-length",
-                    };
-                }
-                else {
-                    const [ srcHash, destHash ] = await Promise.all([
-                        this.hashStream(srcStream.stream),
-                        this.hashStream(destStream.stream)
-                    ]);
-    
-                    if (srcHash !== destHash) {
-                        yield {
-                            path: node.name,
-                            state: "different",
-                            reason: "hash",
-                        };
-                    }
-                    else if (options?.showIdentical) {
-                        yield {
-                            path: node.name,
-                            state: "identical",
-                        };
-                    }
-                }
-            }
-
-            bar.tick();
+            fileListComplete = true;           
         }
+
+        //
+        // Process files that have been added to the queue.
+        //
+        const downloadFiles = async function* (): AsyncIterable<IFsCompareItem> {
+            do {
+                bar.total = totalFiles;
+
+                while (queue.length > 0) {
+                    const node = queue.shift(); // Dequeue.
+                    if (!node) {
+                        continue;
+                    }
+
+                    const destItemPath = joinPath(destPath.path, node.name);
+                    if (!destFs.exists(destItemPath)) {
+                        yield {
+                            path: node.name,
+                            state: "source only",
+                        };
+                    }
+                    else {
+                        const srcItemPath = joinPath(srcPath.path, node.name);
+                        const [ srcStream, destStream ] = await Promise.all([
+                            srcFs.createReadStream(srcItemPath),
+                            destFs.createReadStream(destItemPath)
+                        ]);
+        
+                        if (srcStream.contentLength !== destStream.contentLength) {
+                            yield {
+                                path: node.name,
+                                state: "different",
+                                reason: "content-type",
+                            };
+                        }
+                        if (srcStream.contentLength !== destStream.contentLength || srcStream.contentLength !== destStream.contentLength) {
+                            yield {
+                                path: node.name,
+                                state: "different",
+                                reason: "content-length",
+                            };
+                        }
+                        else {
+                            const [ srcHash, destHash ] = await Promise.all([
+                                hashStream(srcStream.stream),
+                                hashStream(destStream.stream)
+                            ]);
+            
+                            if (srcHash !== destHash) {
+                                yield {
+                                    path: node.name,
+                                    state: "different",
+                                    reason: "hash",
+                                };
+                            }
+                            else if (options?.showIdentical) {
+                                yield {
+                                    path: node.name,
+                                    state: "identical",
+                                };
+                            }
+                        }
+                    }    
+                    
+                    bar.total = totalFiles;
+                    bar.tick();
+                }
+
+                await sleep(1000);
+            
+            } while (!fileListComplete); // Keep waiting until more items have come in, or we have finished finding items.
+        }
+
+        getFiles()
+            .catch(err => {
+                console.error("There was an error getting files.");
+                console.error(err && err.stack || err);
+            });
+
+        yield* downloadFiles();
     }
 }
  

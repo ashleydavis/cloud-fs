@@ -110,7 +110,6 @@ export class AzureFileSystem implements IFileSystem {
         const slashIndex = file.indexOf("/");
         const containerName = file.substring(0, slashIndex);
         const blobPath = file.substring(slashIndex+1);
-
         const containerClient = this.blobService.getContainerClient(containerName);
         const blobClient = containerClient.getBlobClient(blobPath);
         const response = await blobClient.download();
