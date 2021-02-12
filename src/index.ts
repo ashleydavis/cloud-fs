@@ -369,7 +369,7 @@ export class CloudFS {
                     }
 
                     const destItemPath = joinPath(destPath.path, node.name);
-                    if (!destFs.exists(destItemPath)) {
+                    if (!await destFs.exists(destItemPath)) {
                         yield {
                             path: node.name,
                             state: "source only",
@@ -416,7 +416,7 @@ export class CloudFS {
                                 };
                             }
                         }
-                    }    
+                    }   
                     
                     bar.total = totalFiles;
                     bar.tick();
