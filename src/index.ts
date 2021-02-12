@@ -225,54 +225,87 @@ export class CloudFS {
     }
 
     //
-    // Count files recursively under the requested path.
-    //
-    private async countFiles(srcFs: IFileSystem, srcPath: string, options?: { recursive?: boolean }): Promise<number> {
-        const nodes = this._ls(srcFs, srcPath, { recursive: options?.recursive });
-        let fileCount = 0;
-        for await (const node of nodes) {
-            if (!node.isDir) {
-                fileCount += 1;
-            }
-        }
-        return fileCount;
-    }
-
-    //
     // Copies a directory recursively.
     //
     private async copyDir(srcFs: IFileSystem, srcFsId: string, srcPath: string, destFs: IFileSystem, destFsId: string, destPath: string): Promise<void> {
-        
-        const fileCount = await this.countFiles(srcFs, srcPath, { recursive: true });
-        
-        const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
+
+        let totalFiles = 0;
+        let filesSkipped = 0;
+        let filesCopied = 0;
+        let fileListComplete = false;
+        const queue: IFsNode[] = [];
+
+        const bar = new ProgressBar("   Comparing [:bar] :current/:total :percent", { 
             complete: '=',
             incomplete: ' ',
             width: 20,
-            total: fileCount,
+            total: 1,
         });
 
-        const nodes2 = this._ls(srcFs, srcPath, { recursive: true });
-        for await (const node of nodes2) {
-            if (node.isDir) {
-                // Skip directories. 
-                // The call to _ls already recurses.
-                continue;
+        //
+        // Get a list of files into a queue.
+        //
+        const getFiles = async (): Promise<void> => {
+            const nodes = this._ls(srcFs, srcPath, { recursive: true });
+            for await (const node of nodes) {
+                if (node.isDir) {
+                    continue; // Don't need to touch directories.
+                }
+
+                queue.push(node); // Enqueue.
+                totalFiles += 1;
             }
 
-            const srcFilePath = joinPath(srcPath, node.name);
-            const fileBasename = node.name;
-
-            const destFilePath = joinPath(destPath, fileBasename);
-            // console.log(`cp ${srcFsId}:${srcFilePath} => ${destFsId}:${destFilePath}`); //todo: move this into copyFile
-
-            await this.copyFile(srcFs, srcFilePath, destFs, destFilePath);
-
-            bar.tick();
-
-            //TODO: update cur and total as new files are discovered.
-            // bar.curr += 1;
+            fileListComplete = true;           
         }
+
+        //
+        // Process files that have been added to the queue.
+        //
+        const downloadFiles = async (): Promise<void> => {
+            do {
+                bar.total = totalFiles;
+
+                while (queue.length > 0) {
+                    const node = queue.shift(); // Dequeue.
+                    if (!node) {
+                        continue;
+                    }
+
+                    const srcFilePath = joinPath(srcPath, node.name);
+                    const fileBasename = node.name;
+                    const destFilePath = joinPath(destPath, fileBasename);        
+                    const destExists = await destFs.exists(destFilePath);
+                    if (destExists) {
+                        filesSkipped += 1;
+                        return;
+                    }
+            
+                    const input = await srcFs.createReadStream(srcFilePath);
+                    await destFs.copyStreamTo(destFilePath, input);                                
+                    
+                    bar.total = totalFiles;
+                    bar.tick();
+                    filesCopied += 1;
+                }
+
+                await sleep(1000);
+            
+            } while (!fileListComplete); // Keep waiting until more items have come in, or we have finished finding items.
+        }
+
+        getFiles()
+            .catch(err => {
+                console.error("There was an error getting files.");
+                console.error(err && err.stack || err);
+            });
+
+        await downloadFiles();       
+        
+        console.log(`Finished copying files.`);
+        console.log(`Total files: ${totalFiles}`);
+        console.log(`Skipped files: ${filesSkipped} (they already exist in the destination)`);
+        console.log(`Copied files: ${filesCopied}`);
     }
 
     /**
@@ -314,7 +347,7 @@ export class CloudFS {
      * @param src The source directory.
      * @param dest The destination directory.
      */
-    async* compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> {
+    async* compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> { //TODO: have a higher level function that does it all, strips identicals and prints a summary at the end.
 
         let totalFiles = 0;
         let fileListComplete = false;
