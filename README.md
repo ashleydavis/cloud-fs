@@ -20,6 +20,21 @@ Install the [AWS CLI tool](https://aws.amazon.com/cli/).
 
 Use the AWS CLI tool to [authenticate with your AWS account](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html).
 
+Or set your AWS API key in environment variables:
+
+```bash
+export AWS_ACCESS_KEY_ID=<your-aws-access-key>
+export AWS_SECRET_ACCESS_KEY=<your-aws-secret-key>
+```
+
+Or on Windows:
+
+```bash
+set AWS_ACCESS_KEY_ID=<your-aws-access-key>
+set AWS_SECRET_ACCESS_KEY=<your-aws-secret-key>
+```
+
+
 ## Azure storage
 
 Set the following environment variable to the connection string for your Azure storage account:
