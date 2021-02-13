@@ -4,7 +4,7 @@ import { LocalFileSystem } from "./plugins/local";
 import * as path from "path";
 import { AWSFileSystem } from "./plugins/aws";
 import ProgressBar = require("progress");
-import * as crypto from "crypto";
+import { hashStream, joinPath, normalizePath, sleep } from "./utils";
 const AsciiTable = require('ascii-table');
 
 //
@@ -33,46 +33,6 @@ export interface IFsCompareItem {
     reason?: string;
 }
 
-//
-// Normalizes a path.
-//
-function normalizePath(path: string): string {
-    return path.replace(/\\/g, "/");
-}
-
-//
-// Joins paths.
-//
-function joinPath(...args: string[]): string {
-    return normalizePath(path.join(...args));
-}
-
-//
-// Hash an input stream.
-//
-function hashStream(input: NodeJS.ReadableStream): Promise<number> {
-    return new Promise<number>((resolve, reject) => {
-        const hash = crypto.createHash('sha1');
-        hash.setEncoding('hex');
-        input.on('error', reject);
-
-        input.on('end', () => {
-            hash.end();
-            resolve(hash.read()); // Retreive the hashed value.
-        });
-        
-        input.pipe(hash); // Pipe input stream to the hash.
-    });
-}
-
-//
-// Sleep for a specified number of milliseconds.
-//
-function sleep(ms: number): Promise<void> {
-    return new Promise<void>(resolve => {
-        setTimeout(resolve, ms);
-    });
-}
 
 
 export class CloudFS {
