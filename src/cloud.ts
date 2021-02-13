@@ -52,32 +52,7 @@ app
     // .example("ls aws:subdir", "Lists files and directories in AWS under 'subdir'.")
     .action(wrapAction(async args => {
         const dir = args.dir && args.dir.trim();
-        const nodes = cloudFS.ls(dir, args.options.recursive);
-        let fileCount = 0;
-        let dirCount = 0;
-
-        const table = new AsciiTable(`ls`);
-        table.setHeading("File", "Type", "Length");
-
-        for await (const node of nodes) {
-            if (node.isDir) {
-                table.addRow(`${node.name}/`, "", "");
-                dirCount += 1;
-            }
-            else {
-                table.addRow(node.name, node.contentType ?? "", node.contentLength ?? "");
-                fileCount += 1;
-            }
-        }
-
-        if ((dirCount + fileCount) > 0) {
-            console.log(table.toString());
-
-            console.log(`\r\n${fileCount} files. ${dirCount} directories.`);
-            }
-        else {
-            console.log(`No results were found.`);
-        }
+        await cloudFS.ls(dir, { recursive: args.options.recursive });
     }));
 
 app

@@ -153,13 +153,13 @@ export class CloudFS {
     //
     // List files and directories recursively for a particular file system.
     // 
-    private async* _ls(fs: IFileSystem, dir: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
+    private async* _listItems(fs: IFileSystem, dir: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
         for await (const node of fs.ls(dir)) {
             yield node;
 
             if (options?.recursive && node.isDir) {
                 const subPath = joinPath(dir, node.name);
-                for await (const subNode of this._ls(fs, subPath, options)) {
+                for await (const subNode of this._listItems(fs, subPath, options)) {
                     yield {
                         isDir: subNode.isDir,
                         name: joinPath(node.name, subNode.name),
@@ -177,7 +177,7 @@ export class CloudFS {
      * @param dir List files and directories under this directory.
      * @param recursive List files and directories for the entire subtree.
      */
-    async* ls(dir?: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
+    async* listItems(dir?: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
         dir = this.getFullDir(dir);
         if (dir === "/") {
             const rootDirs = ["az", "aws", "local"];
@@ -189,7 +189,7 @@ export class CloudFS {
     
                 if (options?.recursive) {
                     const subPath = joinPath("/", rootDir);
-                    for await (const node of this.ls(subPath, options)) {
+                    for await (const node of this.listItems(subPath, options)) {
                         yield {
                             isDir: node.isDir,
                             name: joinPath(subPath, node.name),
@@ -208,7 +208,43 @@ export class CloudFS {
         if (!fs) {
             throw new Error(`Failed to find file system provider specified by "${path.fileSystem}".`);
         }
-        yield* this._ls(fs, path.path, options);
+        yield* this._listItems(fs, path.path, options);
+    }
+
+    /**
+     * Lists files and directories.
+     * 
+     * @param dir List files and directories under this directory.
+     * @param recursive List files and directories for the entire subtree.
+     */
+    async ls(dir?: string, options?: { recursive?: boolean }): Promise<void> {
+        dir = dir && dir.trim();
+        const nodes = this.listItems(dir, options);
+        let fileCount = 0;
+        let dirCount = 0;
+
+        const table = new AsciiTable(`ls`);
+        table.setHeading("File", "Type", "Length");
+
+        for await (const node of nodes) {
+            if (node.isDir) {
+                table.addRow(`${node.name}/`, "", "");
+                dirCount += 1;
+            }
+            else {
+                table.addRow(node.name, node.contentType ?? "", node.contentLength ?? "");
+                fileCount += 1;
+            }
+        }
+
+        if ((dirCount + fileCount) > 0) {
+            console.log(table.toString());
+
+            console.log(`\r\n${fileCount} files. ${dirCount} directories.`);
+            }
+        else {
+            console.log(`No results were found.`);
+        }
     }
 
     //
@@ -247,7 +283,7 @@ export class CloudFS {
         // Get a list of files into a queue.
         //
         const getFiles = async (): Promise<void> => {
-            const nodes = this._ls(srcFs, srcPath, { recursive: true });
+            const nodes = this._listItems(srcFs, srcPath, { recursive: true });
             for await (const node of nodes) {
                 if (node.isDir) {
                     continue; // Don't need to touch directories.
@@ -376,7 +412,7 @@ export class CloudFS {
         // Get a list of files into a queue.
         //
         const getFiles = async (): Promise<void> => {
-            const nodes = this.ls(src, { recursive: options?.recursive });
+            const nodes = this.listItems(src, { recursive: options?.recursive });
             for await (const node of nodes) {
                 if (node.isDir) {
                     continue; // Don't need to touch directories.
