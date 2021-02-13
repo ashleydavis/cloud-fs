@@ -340,10 +340,15 @@ export class CloudFS {
         }
     }
 
-    //
-    // Internal version of the compare function.
-    //
-    private async* _compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> { //TODO: have a higher level function that does it all, strips identicals and prints a summary at the end.
+    /**
+     * Compare the source directoy to the destination.
+     * Returns a list of files that are different to those in the destination or that don't exist
+     * in the destination at all.
+     * 
+     * @param src The source directory.
+     * @param dest The destination directory.
+     */
+    async* compareFiles(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> { //TODO: have a higher level function that does it all, strips identicals and prints a summary at the end.
 
         let totalFiles = 0;
         let fileListComplete = false;
@@ -467,14 +472,13 @@ export class CloudFS {
 
     /**
      * Compare the source directoy to the destination.
-     * Returns a list of files that are different to those in the destination or that don't exist
-     * in the destination at all.
+     * Prints differences and a summary.
      * 
      * @param src The source directory.
      * @param dest The destination directory.
      */
     async compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): Promise<void> {
-        const diffs = this._compare(src, dest, options);
+        const diffs = this.compareFiles(src, dest, options);
         const table = new AsciiTable('compare');
         table.setHeading("Path", "State", "Reason");
 
