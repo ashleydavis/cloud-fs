@@ -278,15 +278,15 @@ export class CloudFS {
                     const destExists = await destFs.exists(destFilePath);
                     if (destExists) {
                         filesSkipped += 1;
-                        return;
                     }
-            
-                    const input = await srcFs.createReadStream(srcFilePath);
-                    await destFs.copyStreamTo(destFilePath, input);                                
+                    else {
+                        const input = await srcFs.createReadStream(srcFilePath);
+                        await destFs.copyStreamTo(destFilePath, input);                                
+                        filesCopied += 1;
+                    }
                     
                     bar.total = totalFiles;
                     bar.tick();
-                    filesCopied += 1;
                 }
 
                 await sleep(1000);
@@ -364,7 +364,7 @@ export class CloudFS {
             throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
         }
 
-        const bar = new ProgressBar("   Comparing [:bar] :current/:total :percent", { 
+        const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
             complete: '=',
             incomplete: ' ',
             width: 20,
