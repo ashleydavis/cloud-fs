@@ -2,7 +2,6 @@ import * as Vorpal from "vorpal";
 import { CloudFS } from ".";
 const app =  new Vorpal();
 const cloudFS = new CloudFS();
-const AsciiTable = require('ascii-table');
 
 type VorpalFn = (args: Vorpal.Args) => Promise<void>;
 

@@ -1,8 +1,5 @@
-import { AzureFileSystem } from "./plugins/azure";
-import { IFileSystem, IFsNode } from "./plugins/file-system";
-import { LocalFileSystem } from "./plugins/local";
+import { IFileSystem, IFsNode } from "./file-system";
 import * as path from "path";
-import { AWSFileSystem } from "./plugins/aws";
 import ProgressBar = require("progress");
 import { hashStream, joinPath, normalizePath, sleep } from "./utils";
 const AsciiTable = require('ascii-table');
@@ -15,15 +12,6 @@ interface IParsedPath {
     path: string;
 }
 
-//
-// Lookup table for file systems.
-//
-const fileSystems: { [name: string]: IFileSystem } = {
-    local: new LocalFileSystem(),
-    az: new AzureFileSystem(),
-    aws: new AWSFileSystem(),
-};
-
 /**
  * Results of a file comparison.
  */
@@ -33,14 +21,37 @@ export interface IFsCompareItem {
     reason?: string;
 }
 
-
-
 export class CloudFS {
+
+    //
+    // Names of supported file systems.
+    //
+    private readonly fileSystemNames = ["az", "aws", "local"];
+
+    //
+    // File systems plugins that have been loaded.
+    //
+    private fileSystems: any = {};
 
     //
     // The current working directory.
     //
     private workingDir: string = "/";
+
+    //
+    // Loads a file system by name.
+    //
+    private loadFileSystem(fsName: string): IFileSystem {
+        const cachedFileSystem = this.fileSystems[fsName];
+        if (cachedFileSystem) {
+            return cachedFileSystem;
+        }
+
+        const LoadedFileSystem = require(`./plugins/${fsName}`).default;
+        const loadedFileSystem = new LoadedFileSystem();
+        this.fileSystems[fsName] = loadedFileSystem;
+        return loadedFileSystem;
+    }
     
     //
     // Parses a path and extract the file system ID.
@@ -140,8 +151,7 @@ export class CloudFS {
     async* listItems(dir?: string, options?: { recursive?: boolean }): AsyncIterable<IFsNode> {
         dir = this.getFullDir(dir);
         if (dir === "/") {
-            const rootDirs = ["az", "aws", "local"];
-            for (const rootDir of rootDirs) {
+            for (const rootDir of this.fileSystemNames) {
                 yield {
                     isDir: true,
                     name: rootDir,
@@ -164,7 +174,7 @@ export class CloudFS {
         }
 
         const path = this.parsePath(dir);
-        const fs = fileSystems[path.fileSystem];
+        const fs = this.loadFileSystem(path.fileSystem);
         if (!fs) {
             throw new Error(`Failed to find file system provider specified by "${path.fileSystem}".`);
         }
@@ -314,11 +324,11 @@ export class CloudFS {
     async cp(src: string, dest: string): Promise<void> {
         const srcPath = this.parsePath(this.getFullDir(src));
         const destPath = this.parsePath(this.getFullDir(dest));
-        const srcFs = fileSystems[srcPath.fileSystem];
+        const srcFs = this.loadFileSystem(srcPath.fileSystem);
         if (!srcFs) {
             throw new Error(`Failed to find file system provider with name "${srcPath.fileSystem}".`);
         }
-        const destFs = fileSystems[destPath.fileSystem];
+        const destFs = this.loadFileSystem(destPath.fileSystem);
         if (!destFs) {
             throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
         }
@@ -352,11 +362,11 @@ export class CloudFS {
 
         const srcPath = this.parsePath(this.getFullDir(src));
         const destPath = this.parsePath(this.getFullDir(dest));
-        const srcFs = fileSystems[srcPath.fileSystem];
+        const srcFs = this.loadFileSystem(srcPath.fileSystem);
         if (!srcFs) {
             throw new Error(`Failed to find file system provider with name "${srcPath.fileSystem}".`);
         }
-        const destFs = fileSystems[destPath.fileSystem];
+        const destFs = this.loadFileSystem(destPath.fileSystem);
         if (!destFs) {
             throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
         }

@@ -2,14 +2,14 @@
 Interface to the local file system.
 */
 
-import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
+import { IFileReadResponse, IFileSystem, IFsNode } from "../file-system";
 import * as shell from "shelljs";
 import { createReadStream, createWriteStream } from "fs";
 import * as fsExtra from "fs-extra";
 import * as path from "path";
 import { waitPipe } from "../utils";
 
-export class LocalFileSystem implements IFileSystem {
+export default class LocalFileSystem implements IFileSystem {
     /**
      * Lists files and directories.
      * 

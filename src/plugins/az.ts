@@ -13,11 +13,11 @@ https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-no
 https://docs.microsoft.com/en-us/javascript/api/@azure/storage-blob/
 */
 
-import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
+import { IFileReadResponse, IFileSystem, IFsNode } from "../file-system";
 import { BlobGetPropertiesResponse, BlobServiceClient } from '@azure/storage-blob';
 import * as path from "path";
 
-export class AzureFileSystem implements IFileSystem {
+export default class AzureFileSystem implements IFileSystem {
 
     private blobService: BlobServiceClient;
     

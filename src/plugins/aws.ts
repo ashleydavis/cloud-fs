@@ -12,11 +12,11 @@ https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-starte
 https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-your-credentials.html
 */
 
-import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
+import { IFileReadResponse, IFileSystem, IFsNode } from "../file-system";
 import * as aws from "aws-sdk";
 import { S3 } from "aws-sdk";
 
-export class AWSFileSystem implements IFileSystem {
+export default class AWSFileSystem implements IFileSystem {
 
     private s3: aws.S3;
     
