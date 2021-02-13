@@ -10,6 +10,7 @@ Or
 set AZURE_STORAGE_CONNECTION_STRING=<your-connection-string>
 
 https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-nodejs
+https://docs.microsoft.com/en-us/javascript/api/@azure/storage-blob/
 */
 
 import { IFileReadResponse, IFileSystem, IFsNode } from "./file-system";
