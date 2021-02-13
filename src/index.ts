@@ -235,7 +235,7 @@ export class CloudFS {
         let fileListComplete = false;
         const queue: IFsNode[] = [];
 
-        const bar = new ProgressBar("   Comparing [:bar] :current/:total :percent", { 
+        const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
             complete: '=',
             incomplete: ' ',
             width: 20,
@@ -364,7 +364,7 @@ export class CloudFS {
             throw new Error(`Failed to find file system provider with name "${destPath.fileSystem}".`);
         }
 
-        const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
+        const bar = new ProgressBar("   Comparing [:bar] :current/:total :percent", { 
             complete: '=',
             incomplete: ' ',
             width: 20,
