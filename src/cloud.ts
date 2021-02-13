@@ -94,23 +94,7 @@ app
     .option("-r, --recursive", "Compoares files recursively.")
     .option("-i, --identical", "Show results for identical files (as well as different/source only.")
     .action(wrapAction(async args => {
-        const diffs = cloudFS.compare(args.src.trim(), args.dest.trim(), { recursive: args.options.recursive, showIdentical: args.options.identical });
-        const table = new AsciiTable('compare');
-        table.setHeading("Path", "State", "Reason");
-
-        let fileCount = 0;
-        
-        for await (const diff of diffs) {
-            table.addRow(diff.path, diff.state, diff.reason ?? "");
-            fileCount += 1;
-        }
-
-        if (fileCount > 0) {
-            console.log(table.toString());
-        }
-        else {
-            console.log(`No results were found.`);
-        }
+        await cloudFS.compare(args.src.trim(), args.dest.trim(), { recursive: args.options.recursive, showIdentical: args.options.identical });
     }));
 
 if (process.argv.length === 2) {

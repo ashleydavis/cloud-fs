@@ -5,6 +5,7 @@ import * as path from "path";
 import { AWSFileSystem } from "./plugins/aws";
 import ProgressBar = require("progress");
 import * as crypto from "crypto";
+const AsciiTable = require('ascii-table');
 
 //
 // Parses a path and extract the file system ID.
@@ -339,15 +340,10 @@ export class CloudFS {
         }
     }
 
-    /**
-     * Compare the source directoy to the destination.
-     * Returns a list of files that are different to those in the destination or that don't exist
-     * in the destination at all.
-     * 
-     * @param src The source directory.
-     * @param dest The destination directory.
-     */
-    async* compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> { //TODO: have a higher level function that does it all, strips identicals and prints a summary at the end.
+    //
+    // Internal version of the compare function.
+    //
+    private async* _compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): AsyncIterable<IFsCompareItem> { //TODO: have a higher level function that does it all, strips identicals and prints a summary at the end.
 
         let totalFiles = 0;
         let fileListComplete = false;
@@ -467,6 +463,34 @@ export class CloudFS {
             });
 
         yield* downloadFiles();
+    }    
+
+    /**
+     * Compare the source directoy to the destination.
+     * Returns a list of files that are different to those in the destination or that don't exist
+     * in the destination at all.
+     * 
+     * @param src The source directory.
+     * @param dest The destination directory.
+     */
+    async compare(src: string, dest: string, options?: { recursive?: boolean, showIdentical?: boolean }): Promise<void> {
+        const diffs = this._compare(src, dest, options);
+        const table = new AsciiTable('compare');
+        table.setHeading("Path", "State", "Reason");
+
+        let fileCount = 0;
+        
+        for await (const diff of diffs) {
+            table.addRow(diff.path, diff.state, diff.reason ?? "");
+            fileCount += 1;
+        }
+
+        if (fileCount > 0) {
+            console.log(table.toString());
+        }
+        else {
+            console.log(`No results were found.`);
+        }
     }
 }
  
