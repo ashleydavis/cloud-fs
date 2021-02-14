@@ -236,10 +236,11 @@ export class CloudFS {
     //
     private async copyDir(srcFs: IFileSystem, srcFsId: string, srcPath: string, destFs: IFileSystem, destFsId: string, destPath: string): Promise<void> {
 
-        let totalFiles = 0;
+        let totalFiles = 0; //todo: Share this pipeline code with compare.
         let filesSkipped = 0;
         let filesCopied = 0;
         let fileListComplete = false;
+        let fileListErr;
         const queue: IFsNode[] = [];
 
         const bar = new ProgressBar("   Copying [:bar] :current/:total :percent", { 
@@ -298,21 +299,30 @@ export class CloudFS {
 
                 await sleep(1000);
             
-            } while (!fileListComplete); // Keep waiting until more items have come in, or we have finished finding items.
+            // Keep waiting until more items have come in, or we have finished finding items.
+            } while (queue.length > 0 || !fileListComplete); 
         }
 
         getFiles()
             .catch(err => {
                 console.error("There was an error getting files.");
                 console.error(err && err.stack || err);
+
+                fileListComplete = true;
+                fileListErr = err;
             });
 
         await downloadFiles();       
+
+        if (fileListErr) {
+            throw fileListErr;
+        }
         
         console.log(`Finished copying files.`);
         console.log(`Total files: ${totalFiles}`);
         console.log(`Skipped files: ${filesSkipped} (they already exist in the destination)`);
         console.log(`Copied files: ${filesCopied}`);
+        
     }
 
     /**

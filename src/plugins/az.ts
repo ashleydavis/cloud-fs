@@ -11,11 +11,13 @@ set AZURE_STORAGE_CONNECTION_STRING=<your-connection-string>
 
 https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-nodejs
 https://docs.microsoft.com/en-us/javascript/api/@azure/storage-blob/
+https://github.com/Azure-Samples/azure-sdk-for-js-storage-blob-stream-nodejs/
 */
 
 import { IFileReadResponse, IFileSystem, IFsNode } from "../file-system";
-import { BlobGetPropertiesResponse, BlobServiceClient } from '@azure/storage-blob';
+import { BlobBatch, BlobGetPropertiesResponse, BlobServiceClient, BlockBlobUploadStreamOptions } from '@azure/storage-blob';
 import * as path from "path";
+import { Readable } from "stream";
 
 export default class AzureFileSystem implements IFileSystem {
 
@@ -96,7 +98,12 @@ export default class AzureFileSystem implements IFileSystem {
      * @param file The file to check for existance.
      */
     async exists(file: string): Promise<boolean> {
-        throw new Error("Not implemented");
+        const slashIndex = file.indexOf("/"); //todo: share this setup code.
+        const containerName = file.substring(0, slashIndex);
+        const blobPath = file.substring(slashIndex+1);
+        const containerClient = this.blobService.getContainerClient(containerName);
+        const blobClient = containerClient.getBlockBlobClient(blobPath);
+        return await blobClient.exists();
     }
 
     /**
@@ -112,12 +119,12 @@ export default class AzureFileSystem implements IFileSystem {
         const containerName = file.substring(0, slashIndex);
         const blobPath = file.substring(slashIndex+1);
         const containerClient = this.blobService.getContainerClient(containerName);
-        const blobClient = containerClient.getBlobClient(blobPath);
+        const blobClient = containerClient.getBlockBlobClient(blobPath);
         const response = await blobClient.download();
         return {
             contentType: response.contentType,
             contentLength: response.contentLength,
-            stream: response.readableStreamBody!
+            stream: response.readableStreamBody! as Readable, //TODO: Does this work???
         };
     }
 
@@ -127,7 +134,21 @@ export default class AzureFileSystem implements IFileSystem {
      * @param file The file to write to.
      */
     async copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
-        throw new Error("Not implemented");
+        if (file[0] === "/") {
+            file = file.substring(1);
+        }
+        const slashIndex = file.indexOf("/");
+        const containerName = file.substring(0, slashIndex);
+        const blobPath = file.substring(slashIndex+1);
+        const containerClient = this.blobService.getContainerClient(containerName);
+        await containerClient.createIfNotExists();
+        const blobClient = containerClient.getBlockBlobClient(blobPath);
+        let options: BlockBlobUploadStreamOptions = {};
+        if (input.contentType) {
+            options.blobHTTPHeaders = {
+                blobContentType: input.contentType,
+            };
+        }
+        await blobClient.uploadStream(input.stream, undefined, undefined, options);
     }
-
 }

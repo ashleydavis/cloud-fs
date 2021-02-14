@@ -37,6 +37,7 @@
         "ascii-table": "0.0.9",
         "aws-sdk": "^2.839.0",
         "fs-extra": "^9.1.0",
+        "mime-types": "^2.1.28",
         "moment": "^2.29.1",
         "progress": "^2.0.3",
         "shelljs": "^0.8.4",
@@ -45,6 +46,7 @@
     "devDependencies": {
         "@types/fs-extra": "^9.0.6",
         "@types/jest": "^26.0.20",
+        "@types/mime-types": "^2.1.0",
         "@types/node": "^14.14.25",
         "@types/progress": "^2.0.3",
         "@types/shelljs": "^0.8.8",

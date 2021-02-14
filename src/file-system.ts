@@ -1,3 +1,5 @@
+import { Readable } from "stream";
+
 /**
  * Represents a file or directory in a file system.
  */
@@ -38,7 +40,7 @@ export interface IFileReadResponse {
     /**
      * Readable stream for the file.
      */
-    stream: NodeJS.ReadableStream;
+    stream: Readable;
 }
 
 /**

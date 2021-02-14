@@ -8,6 +8,7 @@ import { createReadStream, createWriteStream } from "fs";
 import * as fsExtra from "fs-extra";
 import * as path from "path";
 import { waitPipe } from "../utils";
+import * as mime from 'mime-types';
 
 export default class LocalFileSystem implements IFileSystem {
     /**
@@ -19,9 +20,12 @@ export default class LocalFileSystem implements IFileSystem {
         for (const item of shell.ls(dir)) {
             const fullPath = path.join(dir, item);
             const stat = await fsExtra.stat(fullPath);
+            const contentType = mime.lookup(item) || undefined;
             yield {
                 isDir: stat.isDirectory(),
                 name: item,
+                contentLength: stat.size,
+                contentType: contentType,
             };
         }
     }
@@ -41,10 +45,12 @@ export default class LocalFileSystem implements IFileSystem {
      * @param file The file to open.
      */
     async createReadStream(file: string): Promise<IFileReadResponse> {
+        const stat = await fsExtra.stat(file);
+        const contentType = mime.lookup(file) || undefined;
         return {
-            //todo: use file ext for content type.
-            //todo: use stat for file lenght
             stream: createReadStream(file),
+            contentLength: stat.size,
+            contentType: contentType,
         };
     }
 
