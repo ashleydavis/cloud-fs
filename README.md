@@ -18,13 +18,18 @@ To use `cloud-fs` you need to configure it to connect to your cloud storage acco
 
 Install the [AWS CLI tool](https://aws.amazon.com/cli/).
 
-Use the AWS CLI tool to [authenticate with your AWS account](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html).
+Use the AWS CLI tool to [authenticate with your AWS account](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) by running this command:
+
+```bash
+aws configure
+```
 
 Or set your AWS API key in environment variables:
 
 ```bash
 export AWS_ACCESS_KEY_ID=<your-aws-access-key>
 export AWS_SECRET_ACCESS_KEY=<your-aws-secret-key>
+export AWS_REGION=<your-aws-region>
 ```
 
 Or on Windows:
@@ -32,6 +37,7 @@ Or on Windows:
 ```bash
 set AWS_ACCESS_KEY_ID=<your-aws-access-key>
 set AWS_SECRET_ACCESS_KEY=<your-aws-secret-key>
+set AWS_REGION=<your-aws-region>
 ```
 
 

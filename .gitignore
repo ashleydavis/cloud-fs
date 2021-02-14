@@ -61,3 +61,5 @@ build/
 *.bak
 tsconfig.tsbuildinfo
 todo.md
+demo video.md
+cloud-fs-test/

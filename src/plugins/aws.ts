@@ -16,6 +16,14 @@ import { IFileReadResponse, IFileSystem, IFsNode } from "../file-system";
 import * as aws from "aws-sdk";
 import { S3 } from "aws-sdk";
 
+//
+// Represents a file path in AWS.
+//
+interface IAwsPath {
+    Bucket: string;
+    Key: string;
+}
+
 export default class AWSFileSystem implements IFileSystem {
 
     private s3: aws.S3;
@@ -27,7 +35,7 @@ export default class AWSFileSystem implements IFileSystem {
     //
     // Extract relevant details from the path.
     //
-    private extractPath(file: string) {
+    private extractPath(file: string): IAwsPath {
         if (file[0] === "/") {
             file = file.substring(1);
         }
@@ -49,14 +57,48 @@ export default class AWSFileSystem implements IFileSystem {
         throw new Error("Not implemented");
     }
 
-    /**
-     * Returns true if the specified file already exists in the file system.
-     * 
-     * @param file The file to check for existance.
-     */
-    async exists(file: string): Promise<boolean> {
-        try { 
-            await this.s3.headObject(this.extractPath(file)).promise();
+    //
+    // Checks if the requested bucket exists.
+    //
+    private async checkBucketExists(bucketName: string): Promise<boolean> { 
+        try {
+            await this.s3.headBucket({ Bucket: bucketName }).promise();
+            return true;
+        } 
+        catch (err) {
+            if (err.statusCode === 404 || err.statusCode === 403) {
+                return false;
+            }
+
+            throw err;
+        }
+    };    
+
+    //
+    // Creates the requested bucket.
+    //
+    private async createBucket(bucketName: string): Promise<void> {
+        await this.s3.createBucket({ Bucket: bucketName }).promise();
+    }
+
+    //
+    // Creates the requested bucket if it doesn't exit.
+    //
+    private async createBucketIfNotExisting(bucketName: string): Promise<void> {
+        const exists = await this.checkBucketExists(bucketName);
+        if (exists) {
+            return;
+        }
+
+        await this.createBucket(bucketName);
+    }
+
+    //
+    // Checks if the requested bucket exists.
+    //
+    private async checkFileExists(path: IAwsPath): Promise<boolean> { 
+        try {
+            await this.s3.headObject(path).promise();
             return true;
         } 
         catch (err) {
@@ -67,6 +109,17 @@ export default class AWSFileSystem implements IFileSystem {
                 throw err;
             }
         }
+    };    
+
+    /**
+     * Returns true if the specified file already exists in the file system.
+     * 
+     * @param file The file to check for existance.
+     */
+    async exists(file: string): Promise<boolean> {
+        const path = this.extractPath(file);
+        return await this.checkBucketExists(path.Bucket)
+            && await this.checkFileExists(path);
     }   
     
     //
@@ -111,24 +164,17 @@ export default class AWSFileSystem implements IFileSystem {
      * 
      * @param file The file to write to.
      */
-    copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const { Bucket, Key } = this.extractPath(file);
-            const params: S3.Types.PutObjectRequest = {
-                Bucket: Bucket, 
-                Key: Key, 
-                Body: input.stream,
-                ContentType: input.contentType,
-                ContentLength: input.contentLength,
-            };    
-            this.s3.upload(params, (err: Error) => {
-                if (err) {
-                    reject(err);
-                }
-                else {
-                    resolve();
-                }
-            });
-        });
+    async copyStreamTo(file: string, input: IFileReadResponse): Promise<void> {
+        const { Bucket, Key } = this.extractPath(file);
+        await this.createBucketIfNotExisting(Bucket);
+
+        const params: S3.Types.PutObjectRequest = {
+            Bucket: Bucket, 
+            Key: Key, 
+            Body: input.stream,
+            ContentType: input.contentType,
+            ContentLength: input.contentLength,
+        };    
+        await this.s3.upload(params).promise();
     }
 }
