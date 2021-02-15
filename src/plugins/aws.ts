@@ -10,6 +10,7 @@ https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/welcome.html
 https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/index.html
 https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-started-nodejs.html
 https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/getting-your-credentials.html
+https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/s3-example-creating-buckets.html
 */
 
 import { IFileReadResponse, IFileSystem, IFsNode } from "../file-system";
