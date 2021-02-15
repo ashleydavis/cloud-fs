@@ -2,8 +2,6 @@
 
 Commands for working with files in cloud storage.
 
-PROTOTYPING. WORK IN PROGRESS
-
 # Install
 
 ```bash
