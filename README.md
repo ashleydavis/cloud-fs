@@ -2,6 +2,8 @@
 
 Commands for working with files in cloud storage.
 
+If you like this project, please star this repo and [support my work](https://www.codecapers.com.au/about#support-my-work)
+
 # Install
 
 ```bash
